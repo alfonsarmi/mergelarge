@@ -4918,7 +4918,7 @@ private String pagoPresentacion(HttpServletRequest request, UserProfileInfo user
 		return getLiquidacionBLJBean(request).obtenerAutorizacion(userProfile, presentacionInfo);
 	}
 	
-	public String calculaNrcFicticio(HttpServletRequest request, UserProfileInfo userProfile, String nifSujetoPasivo) {
+	public String calculaNrcFicticio(HttpServletRequest request, UserProfileInfo userProfile, String nifSujetoPasivo) {  
 		String nrcGenerado = "";
 		ConsultaLiquidacionInfo consultaLiquidacion = (ConsultaLiquidacionInfo) request.getSession().getAttribute("liquidacionInfo");
 		
