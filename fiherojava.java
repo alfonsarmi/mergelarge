@@ -581,6 +581,7 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
             
             //GestionPermisos: Me trae la informaci�n relativa a ese documento
             consultaLiquidacionInfo = getLiquidacionBLJBean(request).getConsultaLiquidacion(userProfile,liquidacion);
+            consultaLiquidacionInfo.setLiquidacionInfo909(liquidacion.getLiquidacionInfo909());
             //Lo eliminamos a petici�n al probar lo de los adjuntos del 600, nos indican que no quieren ver el mensaje este de diligencias.
             /*if(consultaLiquidacionInfo.getIdDiligencia().intValue()!=0){
                 //Mostramos informacion acerca del estado de la diligencia de presentacion
@@ -991,6 +992,7 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                 throw new Exception();
             //GestionPermisos: Me trae la informaci�n relativa a ese documento
             consultaLiquidacionInfo = getLiquidacionBLJBean(request).getConsultaLiquidacion(userProfile,liquidacion);
+            //consultaLiquidacionInfo.setLiquidacionInfo909(liquidacion.getLiquidacionInfo909());
         
             //Buscariamos un documento con nif y concepto igual al de la liquidacion actual con la misma autorizaci�n
             //y si existe me traigo los datos de pago. 
@@ -1292,7 +1294,7 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
 						url = getUrl(Constantes.PRESENTACION_FUNCIONARIO_FRAME);
 					} else {
 						consultaLiquidacion.setPagoSinAutorizacion(true);
-						request.getSession().setAttribute("order", idLiquidacion);
+						request.getSession().setAttribute("order", consultaLiquidacion.getLiquidacionInfo909().getIdLiquidacion());
 						request.getSession().setAttribute("esTarjeta", esTarjetaFuncionario);
 						// Obtenemos el liquidacion Info correspondiente y creamos el presentacion info
 						// para despues
@@ -1921,12 +1923,16 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
         LiquidacionInfo liquidacionInfo = null;
         PresentacionInfo presentacionInfo = null;
         EvolucionLiquidacionInfo evolucionLiquidacionInfo = null;
+        EvolucionLiquidacionInfo evolucionLiquidacionInfo909 = null;
         EvolucionLiquidacionInfo evolInfo=null;
+        EvolucionLiquidacionInfo evolInfo909=null;
         ResultInfo errorEnProceso = null;
         String codigoTerritorial = null;
         request.setAttribute("pago",request.getParameter("pago"));
-        sId = (String)request.getSession().getAttribute("idFirma"); 
+        sId = (String)request.getSession().getAttribute("idFirma");
         String esTarjeta = request.getParameter("esTarjeta");
+        String idTransaccionServidor909 = null;
+        
         if(esTarjeta == null){
             esTarjeta = "";
         }
@@ -2072,7 +2078,7 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                                         if(cdAutenticado.equals(cdFirmante) || ControladorSimulador.esSimuladorActivoUsuario()){
                                             //Se realiza el comit de la firma.
                                             firma = request.getParameter("firma");
-                                            clienteFirma.generarFirma(Double.parseDouble(sId), firma, certificadoFirmante, sIdLiquidacion, null);
+                                            clienteFirma.generarFirma(Double.parseDouble(sId), firma, certificadoFirmante, sIdLiquidacion, null);                                         
                                         }else {
                                             errorEnProceso = new ResultInfo(true, "PDF011", getSessionJBean(request).getLiteral("PDF011"));
                                             throw new Exception("El certificado utilizado en la firma no coincide con el utilizado en la autenticacion de la aplicaci�n.");
@@ -2087,6 +2093,16 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                                 // Cambio el estado de la autoliquidacion
                                 liquidacionInfo.setIdEstadoActual(Constantes.ESTADO_PENDIENTE_PAGAR_PRESENTAR);
                                 liquidacionInfo.setIdDocumentoFirma(Double.parseDouble(sId));
+                                if (liquidacionInfo.getLiquidacionInfo909() != null && idTransaccionServidor909 != null) {
+                                    //Id firma para carta de pago 909
+                                    liquidacionInfo.getLiquidacionInfo909().setIdEstadoActual(Constantes.ESTADO_PENDIENTE_PAGAR_PRESENTAR);
+                                    evolucionLiquidacionInfo909 = new EvolucionLiquidacionInfo();
+                                    evolucionLiquidacionInfo909.setIdTipoEstado(Constantes.ESTADO_PENDIENTE_PAGAR_PRESENTAR);
+                                    evolucionLiquidacionInfo909.setIdLiquidacion(liquidacionInfo.getLiquidacionInfo909().getIdLiquidacion());
+                                    evolucionLiquidacionInfo909.setIdUsuario(userProfile.getIdUsuario());
+                                    evolucionLiquidacionInfo909.setFechaEstado(new java.util.Date());
+                                    evolInfo909=getPresentacionBLJBean(request).setPresentacion(userProfile, liquidacionInfo.getLiquidacionInfo909(), evolucionLiquidacionInfo909);
+                                }                  
                                 //vuelvo a actualizar la presentacion con los ultimos cambios
                                 presentacionInfo = new PresentacionInfo(liquidacionInfo);
                                 evolucionLiquidacionInfo = new EvolucionLiquidacionInfo();
@@ -2129,7 +2145,7 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                 return urlDst;
             }*/   
             
-            request.getSession().setAttribute("order", presentacionInfo.getIdLiquidacion());
+            request.getSession().setAttribute("order", liquidacionInfo.getLiquidacionInfo909().getIdLiquidacion());
             request.getSession().setAttribute("esTarjeta", esTarjeta);
             //Consultamos la direccion del IECISA en base de datos
             /* Miramos si el entorno en que estamos es Pruebas, ya que en
@@ -2268,6 +2284,7 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
     private String firmaPagoPresentacion(HttpServletRequest request, UserProfileInfo userProfile){
 
         String sId = null;
+        String idTransaccionServidor909 =  null;
         long idEvolucion;
         String urlDst = getUrl(Constantes.PRESENTACION_SIMPLIFICADA_RESULTADO);
         String firma = null;
@@ -2275,7 +2292,9 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
         LiquidacionInfo liquidacionInfo = null;
         PresentacionInfo presentacionInfo = null;
         EvolucionLiquidacionInfo evolucionLiquidacionInfo = null;
+        EvolucionLiquidacionInfo evolucionLiquidacionInfo909= null;
         EvolucionLiquidacionInfo evolInfo=null;
+        EvolucionLiquidacionInfo evolInfo909=null;
         String codigoTerritorial = null;
         ResultInfo errorEnProceso = null;
         request.setAttribute("pago",request.getParameter("pago"));
@@ -2441,6 +2460,7 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                                         datosFirmados = clienteFirma.getDocumento(Double.parseDouble(sId));
                                         idTransaccionServidor = clienteFirma.generarFirmaServidor(liquidacionInfo.getIdLiquidacion(), datosFirmados,"PDF", null, null);
                                         sId = String.valueOf(idTransaccionServidor);
+                                       
                                     }else{
                                         clienteFirma = ClienteFirmaFactory.crearClienteFirma(Utiles.getPropiedadesSiri().getString(Constantes.ID_APLICACION_FIRMA));
                                         //Recupero el objeto certificado de Session 
@@ -2482,7 +2502,7 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                                         }
                                         if (certificadoValido){
                                             //Se realiza el comit de la firma.
-                                            firma = request.getParameter("firma");
+                                            firma = request.getParameter("firma");                                         
                                             infoDatosFirmados = clienteFirma.generarFirma(Double.parseDouble(sId), firma, certificadoFirmante, sIdLiquidacion, null);
                                         }else {
                                             errorEnProceso = new ResultInfo(true, "PDF011", getSessionJBean(request).getLiteral("PDF011"));
@@ -2498,6 +2518,17 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                             // Cambio el estado de la autoliquidacion
                             liquidacionInfo.setIdEstadoActual(Constantes.ESTADO_PENDIENTE_PAGAR_PRESENTAR);
                             liquidacionInfo.setIdDocumentoFirma(Double.parseDouble(sId));
+                            //&& idTransaccionServidor909 != null
+                            if (liquidacionInfo.getLiquidacionInfo909() != null ) {
+                                //Id firma para carta de pago 909
+                                liquidacionInfo.getLiquidacionInfo909().setIdEstadoActual(Constantes.ESTADO_PENDIENTE_PAGAR_PRESENTAR);
+                                evolucionLiquidacionInfo909 = new EvolucionLiquidacionInfo();
+                                evolucionLiquidacionInfo909.setIdTipoEstado(Constantes.ESTADO_PENDIENTE_PAGAR_PRESENTAR);
+                                evolucionLiquidacionInfo909.setIdLiquidacion(liquidacionInfo.getLiquidacionInfo909().getIdLiquidacion());
+                                evolucionLiquidacionInfo909.setIdUsuario(userProfile.getIdUsuario());
+                                evolucionLiquidacionInfo909.setFechaEstado(new java.util.Date());
+                                evolInfo909=getPresentacionBLJBean(request).setPresentacion(userProfile, liquidacionInfo.getLiquidacionInfo909(), evolucionLiquidacionInfo909);
+                            } 
                             //vuelvo a actualizar la presentacion con los ultimos cambios
                             presentacionInfo = new PresentacionInfo(liquidacionInfo);
                             evolucionLiquidacionInfo = new EvolucionLiquidacionInfo();
@@ -2781,7 +2812,7 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                 request.setAttribute("nombreEntidadFinanciera", nombreEntidadFinanciera);
                 request.setAttribute("ccc", CCC);
                 
-//              Si hay URL de grabaci�n, reenviar los datos a dicha URL
+                // Si hay URL de grabaci�n, reenviar los datos a dicha URL
                 boolean hayUrlRecibo = devolverUrlRecibo(request, userProfile, liquidacionInfo);
                 boolean estadoFinal = false;
                 if(presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PAGADO 
@@ -2793,7 +2824,8 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                 String aplicacion = getPresentacionBLJBean(request).obtenerNombreAplicacion(liquidacionInfo.getIdLiquidacion(), userProfile, estadoFinal);
                 request.getSession().setAttribute("aplicacion", aplicacion);
                 boolean grabado = false;
-                //Si la peticion es externa
+                
+                // Si la peticion es externa
                 if(aplicacion != null && !aplicacion.equals("")){
                 	if (null != liquidacionInfo.getNombreAplicacion() && liquidacionInfo.getNombreAplicacion().equals("GESTORIA")){
                     	logger.debug ("Actualizamos el documento en la plataforma de Gestor�a");   
@@ -2803,9 +2835,10 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                     	}catch (Exception ex){
                         	logger.error("Error al actualizar el estado del documento " + presentacionInfo.getIdLiquidacion() + " en la plataforma de gestor�as. Excepcion: " + ex);            		
                     	}
-                    } 
+                    }
+                	
                 	String urlGrabacion = getPresentacionBLJBean(request).obtenerURLGrabacion(aplicacion, userProfile);
-                    if(urlGrabacion != null && !"".equals(urlGrabacion)){
+                    if (urlGrabacion != null && !"".equals(urlGrabacion)) {
                         //Hacer la peticion de envio a dicha url
                         CifradoInfo datosCifrado = getPresentacionBLJBean(request).obtenerDatosCifrado(aplicacion, userProfile);
                         enviarUrlGrabacion(datosCifrado, urlGrabacion, presentacionInfo);
@@ -2824,69 +2857,77 @@ public class PresentacionSimplificadaServlet extends BaseServlet {
                         }
                     }
                 }
-                if(presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PAGADO ||
+                
+                if (presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PAGADO ||
                         presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PRESENTADO_PENDIENTE_ENTREGAR ||
-                        presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PRESENTADO){
+                        presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PRESENTADO) {
                     request.getSession().setAttribute("errorEnProceso",new ResultInfo(false,"",""));
-                }else{
+                } else {
                     request.getSession().setAttribute("errorEnProceso",new ResultInfo(true,"",""));
-                }   
+                }
+                
                 //REDIRECCIONAMOS A LA PAGINA CON EL RESULTADO DEL PROCESO
                 urlDst = getUrl(Constantes.PRESENTACION_SIMPLIFICADA_FRAME_RESULTADO_SERVLET);
                 
                 // Si es una presentaci�n simplificada volveremos a la aplicaci�n que llama, si no, nos quedamos en la plataforma de pago
                 String accesoSimp = (String)request.getSession().getAttribute("simplificado");
-                
+
                 logger.debug("Acceso Simplificado para URL de recibo: " +accesoSimp + " , URLRecibo?: " + hayUrlRecibo);
                 
-                if(hayUrlRecibo && ((null != accesoSimp && "true".equals(accesoSimp)) ||
-                	(null != request.getSession().getAttribute("accesoPlages") && "true".equals(request.getSession().getAttribute("accesoPlages"))))){
+                if (hayUrlRecibo && ((null != accesoSimp && "true".equals(accesoSimp)) ||
+                	(null != request.getSession().getAttribute("accesoPlages") && "true".equals(request.getSession().getAttribute("accesoPlages"))))) {
                 	
-                	if (null != presentacionInfo.getNombreAplicacion() && presentacionInfo.getNombreAplicacion().equals("GESTORIA")){
+                	if (null != presentacionInfo.getNombreAplicacion() && presentacionInfo.getNombreAplicacion().equals("GESTORIA")) {
                 		//Como hay urlRecibo, redirecciono
-						if(request.getAttribute("urlRecibo") != null){
+						if (request.getAttribute("urlRecibo") != null) {
 							logger.debug("Redirecciono a la url: " + (String)request.getAttribute("urlRecibo"));
 							request.setAttribute("aplicacion","GESTORIA");
 							urlDst = getUrl(Constantes.URL_RECIBO_TARJETA_FRAME);
-						}else{
+						} else {
 							throw new Exception("No existe url de recibo");
 						}
-                	}else{
+                	} else {
 	                    boolean estadoFinalRecibo = false;
-	                    if(presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PAGADO 
+	                    if (presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PAGADO 
 	                        || presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PRESENTADO 
 	                        || presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_PRESENTADO_PENDIENTE_ENTREGAR
-	                        || presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_ERROR_NRC)
+	                        || presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_ERROR_NRC) {
 	                        estadoFinalRecibo = true;
+	                    }
+	                    
 	                    String aplicacionRecibo = getPresentacionBLJBean(request).obtenerNombreAplicacion(presentacionInfo.getIdLiquidacion(), userProfile, estadoFinalRecibo);
 	                    //Creacion del String encriptado a partir del DocRespuesta que viene del jar de tasas
 	                    DocumentoRespuesta docRes = enviarUrlRecibo(request,true,presentacionInfo,presentacionInfo.getIdEstadoActual(),presentacionInfo.getReferencia());
 	                    String xmlEncriptado = obtenerDocResEncriptado(request,docRes,aplicacionRecibo);
-	                    if(xmlEncriptado != null){
+	                    if (xmlEncriptado != null) {
 	                        request.setAttribute("datosEncriptados", xmlEncriptado);
 	                        urlDst = getUrl(Constantes.URL_RECIBO);
-	                    }else{
+	                    } else {
 	                        logger.error("Ha habido un error al intentar encriptar el docRespuesta que debemos de enviar para la aplicacion: " + aplicacionRecibo);
 	                        urlDst = getUrl(Constantes.MOSTRAR_ERROR);
-	                    }   
+	                    } 
+	                    
 	                    //Envio de la confirmacion de recibo
-	                    if(grabado){
+	                    if (grabado) {
 	                        presentacionInfo.setEntrega(2);
-	                    }else
+	                    } else {
 	                        presentacionInfo.setEntrega(3);
-	                    try{
+	                    } 
+	                    
+	                    try {
 	                        boolean result = getLiquidacionBLJBean(request).actEntrega(userProfile,presentacionInfo);
 	                        if(!result){
 	                            throw new Exception("Error en la actualizacion de idEntrega");
 	                        }
-	                    }catch(Exception e){
+	                    } catch(Exception e) {
 	                        logger.error("Error en la actualizacion del campo IdEntrega en sn_webliq: " + e.toString());
 	                        throw new Exception(e);
 	                    }
                 	}
                }
     
-            }//Fin del if de tarjeta/CCC
+            } //Fin del if de tarjeta/CCC
+            
         } catch (Exception e) {
         	if(e != null && e.getMessage() != null && e.getMessage().equals("Error al realizar la consulta al Santander")){
                 logger.error("En estos momentos el banco Santander no est� operativo. Int�ntelo de nuevo m�s tarde.");
@@ -3417,7 +3458,14 @@ protected ResultInfo cargarDatosComboOFPresentacion (HttpServletRequest request,
     
     }
     
-    /******** PAGO PRESENTACION LIQUIDACION **********/
+    /**
+     * PAGO PRESENTACION LIQUIDACION
+     * 
+     * @param request
+     * @param userProfile
+     * @param presentacionInfo
+     * @return
+     */
     private PresentacionInfo pagarPresentar(HttpServletRequest request, UserProfileInfo userProfile, PresentacionInfo presentacionInfo){
     
         String urlDst = getUrl(Constantes.MOSTRAR_ERROR);
@@ -3429,13 +3477,14 @@ protected ResultInfo cargarDatosComboOFPresentacion (HttpServletRequest request,
             
             try{
                 bloqueado = bloquear(request, presentacionInfo.getIdLiquidacion(), Constantes.GESTION_PAGO_ERROR);
-                if (bloqueado != 0){
+                logger.trace("Bloqueo del documento"+presentacionInfo.getIdLiquidacion());
+                if (bloqueado != 0 ){
                     resultado = new ResultInfo(true,Constantes.GESTION_PRES_ERROR,getSessionJBean(request).getLiteral(Constantes.GESTION_PAGO_ERROR));
                 }else{
             
                     if (importe <= 0){
                     }else{
-         
+
                         //GESTION FECHA PRESENTACION                                                
                         if (null == presentacionInfo.getFechaPresentacionObject() ){
                             presentacionInfo.setFechaPresentacion(new java.util.Date());
@@ -3457,7 +3506,8 @@ protected ResultInfo cargarDatosComboOFPresentacion (HttpServletRequest request,
 						}                              
                         PresentacionInfo presentacionInfoAux = presentacionInfo; 
                         presentacionInfo=peticionPago(request, userProfile,presentacionInfoAux,entidadFinancieraInfo,urlDst,"","","","");
-                    }                             
+                    }
+
                     //6. PRESENTAR
                     boolean estaPagada = ((presentacionInfo.getNrcObject () != null) && (!"".equals(presentacionInfo.getNrc())));
                     if ((presentacionInfo.getIdEstadoActual() == Constantes.ESTADO_ERROR_TECNICO && estaPagada) 
@@ -3494,6 +3544,7 @@ protected ResultInfo cargarDatosComboOFPresentacion (HttpServletRequest request,
                     // Si el documento fue bloqueado, procedemos al desbloqueo
                     if(bloqueado == 0){
                         bloqueado = desbloquear(request, presentacionInfo.getIdLiquidacion());
+                        logger.trace("Desbloqueo del documento"+presentacionInfo.getIdLiquidacion());
                     }
 
                 }catch (Exception e){
